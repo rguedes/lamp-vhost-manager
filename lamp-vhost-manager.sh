@@ -12,16 +12,16 @@ LOGROOT="/var/log/apache2"
 NAME=
 
 # Desired top level domain (enter to avoid having to use this argument)
-TLD=
+TLD="dev"
 
 # Mode, add or remove (enter to avoid having to use this argument)
-MODE=
+MODE="add"
 
 # MySQL admin user name (enter to avoid having to use this argument)
-MYSQLAU=
+MYSQLAU="root"
 
 # MySQL admin user password (enter to avoid having to use this argument)
-MYSQLAP=
+MYSQLAP="qwe123"
 
 # Desired MySQL database user (enter to avoid having to use this argument)
 MYSQLU=
@@ -31,6 +31,9 @@ MYSQLP=
 
 # Desired MySQL database name (enter to avoid having to use this argument)
 MYSQLN=
+
+# Create Mysql database
+MYSQL=false
 
 # Initialize git repository
 GIT=false
@@ -43,7 +46,7 @@ CGI=false
 # Prints $1 and then exits after any key
 function exit_pause() {
     echo -e "$1.\n"
-    read -p "Press any key to EXIT"
+    read -s -n 1 -p "Press any key to EXIT"
     exit 1
 }
 
@@ -67,12 +70,13 @@ function usage() {
 
   OPTIONS:
     -h    Show this message
-    -m    Mode (required, "add" or "remove")
+    -r    Remove vhost
     -n    Project name (required, used as directory name and as domain name if -t is omitted)
     -t    TLD (optional, provide only if directory name differs from domain name)
     -d    Document root (optional, "$DOCROOT" by default)
     -u    MySQL administrative user name (optional, ommit to avoid managing database)
     -p    MySQL administrative user password (optional, ommit to avoid managing database)
+    -S    Create MySQL database
     -U    Desired MySQL database user name (optional, to be used with -u and -p, project name by default)
     -P    Desired MySQL database password (optional, to be used with -u and -p, project name by default)
     -N    Desired MySQL database name (optional, to be used with -u and -p, project name by default)
@@ -81,22 +85,22 @@ function usage() {
 
   Examples:
     -Add project "example.loc" and create database having "example.loc" user and password and name:
-	$0 -m add -n example.loc -u mysqladminusername -p mysqladminuserpassword
+	$0 -n example.loc -S
 
     -Remove project "example.loc" and optionaly remove database having "example.loc" user and password and name:
-	$0 -m remove -n example.loc -u mysqladminusername -p mysqladminuserpassword
+	$0 -r -n example.loc -S
 
     -Add project "example.loc" using "example" as directory name and "example.loc" as domain without creating database:
-	$0 -m add -n example -t loc
+	$0 -n example -t loc
 
     -Remove project "example.loc" using "example" as directory name and "example.loc" as domain without removing database:
-	$0 -m remove -n example -t loc
+	$0 -r -n example -t loc
 
     -Add project "example.loc" and create database having "exampledbname" name, "exampledbuser" user and "exampledbpass" password:
-	$0 -m add -n example.loc -u mysqladminusername -p mysqladminuserpassword -U exampledbuser -P exampledbpass -N exampledbname
+	$0 -n example.loc -U exampledbuser -P exampledbpass -N exampledbname -S
 
     -Remove project "example.loc" and optionaly remove database having "exampledbname" name, "exampledbuser" user and "exampledbpass" password:
-	$0 -m remove -n example.loc -u mysqladminusername -p mysqladminuserpassword -U exampledbuser -P exampledbpass -N exampledbname
+	$0 -r -n example.loc -U exampledbuser -P exampledbpass -N exampledbname -S
 EOF
 }
 
@@ -114,6 +118,11 @@ function add() {
         echo "Creating git repository in \"$VHOSTDOCROOT\"..."
         git init $VHOSTDOCROOT
       fi
+    # Add index.html to vhost folder
+cat > $VHOSTDOCROOT/index.html <<EOF
+Welcome to $VHOSTDOMAIN
+EOF
+
 
     else
 	echo "\"$VHOSTDOCROOT\" already exists, so not creating..."
@@ -210,7 +219,7 @@ EOF
     fi
 
     # If MySQL credentials are available, use them to create db and user
-    if [[ ! -z $MYSQLAU ]] || [[ ! -z $MYSQLAP ]]
+    if [ $MYSQL == true ]
     then
     echo "Creating MySQL \"$MYSQLU\" user and \"$MYSQLN\" database..."
 mysql "-u$MYSQLAU" "-p$MYSQLAP" <<QUERY_INPUT
@@ -234,7 +243,7 @@ QUERY_INPUT
     echo "PROJECT PATH: $VHOSTDOCROOT"
     echo "PROJECT URL: http://$VHOSTDOMAIN"
 
-    if [[ ! -z $MYSQLAU ]] || [[ ! -z $MYSQLAP ]]
+    if [ $MYSQL == true ]
     then
 	echo "MYSQL USER: $MYSQLU"
 	echo "MYSQL PASSWORD: $MYSQLP"
@@ -288,7 +297,7 @@ function remove() {
     fi
 
     # If MySQL credentials are available, use them to remove db and user
-    if [[ ! -z $MYSQLAU ]] || [[ ! -z $MYSQLAP ]]
+    if [ $MYSQL == true ]
     then
 	yes_no_pause "Do you want to remove MySQL \"$NAME\" database and \"$NAME\" user?"
 	if [ $? = 0 ]
@@ -322,15 +331,15 @@ if [ "$(whoami)" != "root" ]
 fi
 
 # Parse script arguments
-while getopts "hm:n:t:d:u:p:U:P:N:gc" OPTION
+while getopts "hrn:t:d:u:p:U:P:N:gSc" OPTION
 do
   case $OPTION in
     h)
       usage
       exit 1
       ;;
-    m)
-      MODE=$OPTARG
+    r)
+      MODE="remove"
       ;;
     n)
       NAME=$OPTARG
@@ -358,6 +367,9 @@ do
       ;;
     g)
       GIT=true
+      ;;
+    S)
+      MYSQL=true
       ;;
     c)
       CGI=true
@@ -391,7 +403,7 @@ fi
 # For db password fallback to $NAME
 if [[ -z $MYSQLP ]]
 then
-     MYSQLP=$NAME
+     MYSQLP=`date +%s | sha256sum | base64 | head -c 8 ; echo`
 fi
 
 # For db name fallback to $NAME
@@ -409,7 +421,7 @@ else
 fi
 
 # Virtual host file
-VHOSTFILE="/etc/apache2/sites-available/$NAME"
+VHOSTFILE="/etc/apache2/sites-available/$NAME.conf"
 
 # Virtual host document root
 VHOSTDOCROOT="$DOCROOT/$NAME"
