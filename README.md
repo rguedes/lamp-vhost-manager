@@ -3,8 +3,6 @@ LAMP Vhost Manager
 
 Easily manage LAMP name based virtual hosts for your web development projects.
 
-For more details you can visit [my article at inchoo.net](http://inchoo.net/tools-frameworks/easily-manage-lamp-name-based-virtual-hosts/).
-
 Features
 --------
 * Two modes of operation, add and remove project
@@ -23,15 +21,16 @@ OPTIONS:
 
 <pre>
     -h    Show this message
-    -m    Mode (required, "add" or "remove")
+    -r    "Remove" project
     -n    Project name (required, used as directory name and as domain name if -t is omitted)
     -t    TLD (optional, provide only if directory name differs from domain name)
     -d    Document root (optional, "/var/www" by default)
     -u    MySQL administrative user name (optional, ommit to avoid managing database)
     -p    MySQL administrative user password (optional, ommit to avoid managing database)
     -U    Desired MySQL database user name (optional, to be used with -u and -p, project name by default)
-    -P    Desired MySQL database password (optional, to be used with -u and -p, project name by default)
+    -P    Desired MySQL database password (optional, to be used with -u and -p, random string by default)
     -N    Desired MySQL database name (optional, to be used with -u and -p, project name by default)
+    -S    Create MySQL Database
     -g    Initialize empty git repository inside project directory
     -c    Create CGI directory in document root
 </pre>
@@ -41,7 +40,7 @@ Example
 Add project "example.loc":
 
 ```bash
-./lamp-vhost-manager.sh -m add -n example.loc -u mysqladminusername -p mysqladminuserpassword
+./lamp-vhost-manager.sh -n example.loc -u mysqladminusername -p mysqladminuserpassword -S
 ```
 
 Output:
@@ -66,7 +65,7 @@ MYSQL DATABASE: example.loc
 Remove project "example.loc":
 
 ```bash
-./lamp-vhost-manager.sh -m remove -n example.loc -u mysqladminusername -p mysqladminuserpassword
+./lamp-vhost-manager.sh -r -n example.loc -u mysqladminusername -p mysqladminuserpassword -S
 ```
 
 Output:
